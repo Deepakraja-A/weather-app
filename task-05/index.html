@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Advanced Weather App</title>
+
+<style>
+:root {
+    --bg: linear-gradient(135deg, #4facfe, #00f2fe);
+    --card: rgba(255,255,255,0.15);
+    --text: #ffffff;
+}
+
+body.dark {
+    --bg: linear-gradient(135deg, #1e1e2f, #121212);
+    --card: rgba(0,0,0,0.4);
+    --text: #ffffff;
+}
+
+body {
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    transition: 0.3s ease;
+}
+
+.container {
+    width: 95%;
+    max-width: 420px;
+    background: var(--card);
+    backdrop-filter: blur(15px);
+    border-radius: 20px;
+    padding: 25px;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+}
+
+h2 { margin-bottom: 10px; }
+
+.search-box {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 15px;
+}
+
+input {
+    flex: 1;
+    padding: 8px;
+    border-radius: 20px;
+    border: none;
+    outline: none;
+}
+
+button {
+    padding: 8px 12px;
+    border-radius: 20px;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.toggle {
+    margin-top: 10px;
+    background: white;
+    color: black;
+}
+
+.weather-icon {
+    font-size: 45px;
+    margin: 10px 0;
+}
+
+.forecast {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 15px;
+}
+
+.day {
+    font-size: 12px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+    <h2>🌦 Weather App</h2>
+
+    <div class="search-box">
+        <input type="text" id="cityInput" placeholder="Enter city...">
+        <button onclick="searchCity()">Search</button>
+    </div>
+
+    <div id="location">Detecting location...</div>
+    <div class="weather-icon" id="icon"></div>
+    <div id="temp"></div>
+    <div id="condition"></div>
+    <div id="wind"></div>
+    <div id="humidity"></div>
+
+    <div class="forecast" id="forecast"></div>
+
+    <button class="toggle" onclick="toggleMode()">🌙 Toggle Mode</button>
+</div>
+
+<script>
+function toggleMode() {
+    document.body.classList.toggle("dark");
+}
+
+function getWeatherByCoords(lat, lon, cityName="Your Location") {
+    fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min&hourly=relativehumidity_2m&timezone=auto`)
+    .then(res => res.json())
+    .then(data => {
+        const current = data.current_weather;
+
+        document.getElementById("location").textContent = cityName;
+        document.getElementById("temp").textContent = `🌡 ${current.temperature}°C`;
+        document.getElementById("condition").textContent = getWeatherText(current.weathercode);
+        document.getElementById("wind").textContent = `💨 Wind: ${current.windspeed} km/h`;
+        document.getElementById("humidity").textContent = `💧 Humidity: ${data.hourly.relativehumidity_2m[0]}%`;
+        document.getElementById("icon").textContent = getWeatherIcon(current.weathercode);
+
+        showForecast(data.daily);
+    });
+}
+
+function showForecast(daily) {
+    const forecastEl = document.getElementById("forecast");
+    forecastEl.innerHTML = "";
+    for (let i = 1; i <= 5; i++) {
+        const day = document.createElement("div");
+        day.className = "day";
+        day.innerHTML = `
+            <div>${new Date(daily.time[i]).toLocaleDateString('en-US', { weekday: 'short' })}</div>
+            <div>${daily.temperature_2m_max[i]}°</div>
+        `;
+        forecastEl.appendChild(day);
+    }
+}
+
+function getWeatherIcon(code) {
+    if (code === 0) return "☀️";
+    if (code <= 3) return "⛅";
+    if (code <= 48) return "☁️";
+    if (code <= 67) return "🌧️";
+    if (code <= 77) return "❄️";
+    return "🌩️";
+}
+
+function getWeatherText(code) {
+    if (code === 0) return "Clear Sky";
+    if (code <= 3) return "Partly Cloudy";
+    if (code <= 48) return "Cloudy";
+    if (code <= 67) return "Rainy";
+    if (code <= 77) return "Snow";
+    return "Storm";
+}
+
+function searchCity() {
+    const city = document.getElementById("cityInput").value;
+    if (!city) return;
+
+    fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${city}`)
+    .then(res => res.json())
+    .then(data => {
+        if (data.results) {
+            const { latitude, longitude, name } = data.results[0];
+            getWeatherByCoords(latitude, longitude, name);
+        }
+    });
+}
+
+function autoDetect() {
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(position => {
+            getWeatherByCoords(position.coords.latitude, position.coords.longitude);
+        });
+    }
+}
+
+window.onload = autoDetect;
+</script>
+
+</body>
+</html>
